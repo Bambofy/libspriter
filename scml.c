@@ -1,558 +1,4 @@
-#include <assert.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-////////////////////////////////////////////////////////////////////////////////
-// String
-////////////////////////////////////////////////////////////////////////////////
-struct string {
-	char *characters;
-};
-
-struct string string_create(const char *content) {
-	struct string str;
-	str.characters = calloc(strlen(content) + 1, sizeof(char));
-	strcpy(str.characters, content);
-	return str;
-}
-
-void string_destroy(struct string *str) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	free(str->characters);
-}
-
-int string_length(struct string *str) {
-	assert(str != NULL);
-	
-	return strlen(str->characters);
-}
-
-char string_at(struct string *str, int index) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	assert(index <= strlen(str->characters));
-	
-	return str->characters[index];
-}
-
-void string_append_char(struct string *str, char c) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	int old_length = strlen(str->characters);
-	int new_length = old_length + 1;
-	
-	str->characters = realloc(str->characters, new_length + 1);
-	str->characters[new_length] = '\0';
-	str->characters[new_length - 1] = c;
-}
-
-void string_append_char_array(struct string *str, const char *chars) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	assert(chars != NULL);
-	
-	int old_length = strlen(str->characters);
-	int new_length = old_length + strlen(chars);
-	
-	str->characters = realloc(str->characters, new_length + 1);
-	str->characters[new_length] = '\0';
-	strcat(str->characters, chars);
-}
-
-void string_print(struct string *str) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	printf("\"%s\"\r\n", str->characters);
-}
-
-void string_print_raw(struct string *str) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	for (int i = 0; i < (strlen(str->characters) + 1); i++) {
-		printf("'%c',", str->characters[i]);
-	}
-}
-
-bool string_compare(struct string *str, const char *char_array) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	assert(char_array != NULL);
-	
-	return strcmp(str->characters, char_array) == 0;
-}
-
-void string_copy(struct string *dest_str, struct string *src_str) {
-	assert(dest_str != NULL);
-	assert(src_str != NULL);
-	assert(dest_str->characters != NULL);
-	assert(src_str->characters != NULL);
-	
-	free(dest_str->characters);
-	dest_str->characters = calloc(string_length(src_str) + 1, sizeof(char));
-	strcpy(dest_str->characters, src_str->characters);
-	dest_str->characters[string_length(src_str)] = '\0';
-}
-
-int string_to_int(struct string *str) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	return atoi(str->characters);
-}
-
-float string_to_float(struct string *str) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	return atof(str->characters);
-}
-
-void string_reset(struct string *str) {
-	assert(str != NULL);
-	assert(str->characters != NULL);
-	
-	memset(str, 0, sizeof(struct string));
-	str->characters = NULL;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// 								XML
-////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////
-// Value
-////////////////////////////////////////////////////////////////////////////////
-struct value {
-	struct string text;
-};
-
-struct value value_create(struct string text) {
-	struct value value;
-	value.text = text;
-	return value;
-}
-
-void value_destroy(struct value *value) {
-	assert(value != NULL);
-	
-	string_destroy(&value->text);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Name
-////////////////////////////////////////////////////////////////////////////////
-struct name {
-	struct string text;
-};
-
-struct name name_create(struct string text) {
-	struct name name;
-	name.text = text;
-	return name;
-}
-
-void name_destroy(struct name *name) {
-	assert(name != NULL);
-	
-	string_destroy(&name->text);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Attribute
-////////////////////////////////////////////////////////////////////////////////
-struct attribute {
-	struct value value;
-	struct name name;
-};
-
-struct attribute attribute_create(struct value value, struct name name) {
-	struct attribute attribute;
-	attribute.value = value;
-	attribute.name = name;
-	return attribute;
-}
-
-void attribute_destroy(struct attribute *attr) {
-	assert(attr != NULL);
-	
-	value_destroy(&attr->value);
-	name_destroy(&attr->name);
-}
-
-void attribute_reset(struct attribute *attr) {
-	assert(attr != NULL);
-	
-	memset(attr, 0, sizeof(struct attribute));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Attribute list
-////////////////////////////////////////////////////////////////////////////////
-struct attribute_list {
-	int length;
-	struct attribute *items;
-};
-
-struct attribute_list attribute_list_create() {
-	struct attribute_list attribute_list;
-	attribute_list.length = 0;
-	attribute_list.items = NULL;
-	return attribute_list;
-}
-
-void attribute_list_destroy(struct attribute_list *attr_list) {
-	assert(attr_list != NULL);
-	
-	for (int i = 0; i < attr_list->length; i++) {
-		struct attribute attr = attr_list->items[i];
-		attribute_destroy(&attr);
-	}
-	
-	free(attr_list->items);
-}
-
-void attribute_list_append(struct attribute_list *attr_list, struct attribute attr) {
-	assert(attr_list != NULL);
-	
-	attr_list->length++;
-	attr_list->items = realloc(attr_list->items, sizeof(struct attribute) * attr_list->length);
-	attr_list->items[attr_list->length - 1] = attr;
-}
-
-struct attribute attribute_list_find_by_name(struct attribute_list *attr_list, const char *name) {
-	assert(attr_list != NULL);
-	assert(name != NULL);
-	
-	struct attribute attr;
-	bool attribute_found = false;
-	
-	for (int i = 0; i < attr_list->length; i++) {
-		struct attribute curr_attr = attr_list->items[i];
-		if (string_compare(&curr_attr.name.text, name)) {
-			attr = curr_attr;
-			attribute_found = true;
-			break;
-		}
-	}
-	
-	assert(attribute_found);
-	
-	return attr;
-}
-
-bool attribute_list_contains_name(struct attribute_list *attr_list, const char *name) {
-	assert(attr_list != NULL);
-	assert(name != NULL);
-	
-	bool attribute_found = false;
-	
-	for (int i = 0; i < attr_list->length; i++) {
-		struct attribute curr_attr = attr_list->items[i];
-		if (string_compare(&curr_attr.name.text, name)) {
-			attribute_found = true;
-			break;
-		}
-	}
-	
-	return attribute_found;
-}
-
-int attribute_list_length(struct attribute_list *attribute_list) {
-	assert(attribute_list != NULL);
-	
-	return attribute_list->length;
-}
-
-struct attribute attribute_list_at(struct attribute_list *attribute_list, int index) {
-	assert(attribute_list != NULL);
-	assert(index >= 0);
-	assert(index < attribute_list_length(attribute_list));
-	
-	return attribute_list->items[index];
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Identifier
-////////////////////////////////////////////////////////////////////////////////
-struct identifier {
-	struct string text;
-};
-
-struct identifier identifier_create(struct string text) {
-	struct identifier identifier;
-	identifier.text = text;
-	return identifier;
-}
-
-void identifier_destroy(struct identifier *identifier) {
-	assert(identifier != NULL);
-	
-	string_destroy(&identifier->text);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Tag
-////////////////////////////////////////////////////////////////////////////////
-struct tag {
-	struct identifier identifier;
-	struct attribute_list attributes;
-};
-
-struct tag tag_create(struct identifier identifier, struct attribute_list attributes) {
-	struct tag tag;
-	tag.identifier = identifier;
-	tag.attributes = attributes;
-	return tag;
-}
-
-void tag_destroy(struct tag *tag) {
-	assert(tag != NULL);
-	
-	identifier_destroy(&tag->identifier);
-	attribute_list_destroy(&tag->attributes);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Tag list
-////////////////////////////////////////////////////////////////////////////////
-struct tag_list {
-	int length;
-	struct tag *items;
-};
-
-struct tag_list tag_list_create() {
-	struct tag_list tag_list;
-	tag_list.length = 0;
-	tag_list.items = NULL;
-	return tag_list;
-}
-
-void tag_list_destroy(struct tag_list *tag_list) {
-	assert(tag_list != NULL);
-	
-	for (int i = 0; i < tag_list->length; i++) {
-		struct tag tag = tag_list->items[i];
-		tag_destroy(&tag);
-	}
-	free(tag_list->items);
-}
-
-void tag_list_append(struct tag_list *tag_list, struct tag tag) {
-	assert(tag_list != NULL);
-	
-	tag_list->length++;
-	tag_list->items = realloc(tag_list->items, sizeof(struct tag) * tag_list->length);
-	tag_list->items[tag_list->length - 1] = tag;
-}
-
-struct tag* tag_list_top(struct tag_list *tag_list) {
-	assert(tag_list != NULL);
-	assert(tag_list->length > 0);
-	
-	return &(tag_list->items[tag_list->length - 1]);
-}
-
-int tag_list_length(struct tag_list *tag_list) {
-	assert(tag_list != NULL);
-	
-	return tag_list->length;
-}
-
-struct tag tag_list_at(struct tag_list *tag_list, int index) {
-	assert(tag_list != NULL);
-	assert(index >= 0);
-	assert(index < tag_list_length(tag_list));
-	
-	return tag_list->items[index];
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Procedures
-////////////////////////////////////////////////////////////////////////////////
-struct attribute_list parse_attributes(struct string line) {
-	struct attribute_list attribute_list = attribute_list_create();
-	
-	struct string name_str = string_create("");
-	struct string value_str = string_create("");
-	
-	bool past_whitespace = false;
-	
-	bool identifier_skipped = false;
-	bool reading_name = true;
-	bool reading_value = false;
-	
-	bool in_quotes = false;
-	
-	for (int i = 0; i < string_length(&line); i++) {
-		char c = string_at(&line, i);
-		
-		if (!past_whitespace) {
-			if (c == ' ') {
-				continue;
-			} else {
-				past_whitespace = true;
-			}
-		}
-		
-		if (!identifier_skipped) {
-			if (c == ' ') { identifier_skipped = true; }
-			continue;
-		}
-		
-		if (reading_name) {
-			if (c == ' ') continue;
-			
-			if (c == '=') {
-				reading_name = false;
-				reading_value = true;
-			} else {
-				string_append_char(&name_str, c);
-			}
-		} else if (reading_value) {
-			if (c == '"') {
-				in_quotes = !in_quotes;
-				
-				if (!in_quotes) {
-					struct name name = name_create(name_str);
-					struct value value = value_create(value_str);
-					
-					struct attribute attribute = attribute_create(value, name);
-					attribute_list_append(&attribute_list, attribute);
-					
-					name_str = string_create("");
-					value_str = string_create("");
-					
-					reading_name = true;
-					reading_value = false;
-					in_quotes = false;
-				}
-			} else if (in_quotes) {
-				string_append_char(&value_str, c);
-			}
-		} else {
-			continue;
-		}
-	}
-	
-	string_destroy(&name_str);
-	string_destroy(&value_str);
-	
-	return attribute_list;
-}
-
-struct identifier parse_identifier(struct string line) {
-	struct string identifier_str = string_create("");
-	bool whitespace_ended = false;
-	
-	for (int i = 0; i < string_length(&line); i++) {
-		char c = string_at(&line, i);
-		
-		if (!whitespace_ended) {
-			if (c == ' ') {
-				continue;
-			} else {
-				whitespace_ended = true;
-			}
-		}
-		
-		if (c == '<') continue;
-		if (c == '/') continue;
-		if (c == '>') continue;
-		if (c == '?') continue;
-		if (c == ' ') break;
-		
-		string_append_char(&identifier_str, c);
-	}
-	
-	struct identifier identifier = identifier_create(identifier_str);
-	return identifier;
-}
-
-struct tag parse_tag(struct string line) {
-	struct identifier identifier = parse_identifier(line);
-	struct attribute_list attribute_list = parse_attributes(line);
-	
-	struct tag tag = tag_create(identifier, attribute_list);
-	return tag;
-}
-
-enum tag_types {
-	tag_type_opening,
-	tag_type_closing
-};
-
-enum tag_types identify_tag(struct string line) {
-	enum tag_types tag_type = tag_type_opening;
-	
-	bool found_less_than = false;
-	int found_less_than_at = 0;
-	
-	for (int i = 0; i < string_length(&line); i++) { // searching for '</'
-		char c = string_at(&line, i);
-		
-		if (c == '<') {
-			found_less_than = true;
-			found_less_than_at = i;
-		}
-		if (c == '/') {
-			if (found_less_than_at == (i-1)) { // is less than index 1 before?
-				tag_type = tag_type_closing;
-				break;
-			}
-		}
-	}
-	
-	return tag_type;
-}
-
-struct tag_list parse_file(char *filepath) {
-	FILE *f;
-	f = fopen(filepath, "r");
-	
-	struct tag_list tag_list = tag_list_create();
-	
-	struct string line = string_create("");
-	
-	bool line_ended = false;
-	while (!feof(f)) {
-		char c = getc(f);
-		
-		if (!line_ended) {
-			if ((c == '\r') || (c == '\n')) {
-				line_ended = true;
-			} else {
-				string_append_char(&line, c);
-			}
-		} else {
-			if ((c != '\r') && (c != '\n')) {
-				line_ended = false;
-				
-				if (identify_tag(line) == tag_type_opening) {
-					struct tag tag = parse_tag(line);
-					tag_list_append(&tag_list, tag);
-				}
-				
-				line = string_create("");
-				if (c != ' ') {
-					string_append_char(&line, c);
-				}
-			}
-		}
-	}
-	
-	string_destroy(&line);
-	
-	fclose(f);
-	
-	return tag_list;
-}
+#include "scml.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -563,13 +9,6 @@ struct tag_list parse_file(char *filepath) {
 ////////////////////////////////////////////////////////////////////////////////
 // File
 ////////////////////////////////////////////////////////////////////////////////
-
-struct file {
-	int id;
-	struct string name;
-	int width, height;
-	float pivot_x, pivot_y;
-};
 
 struct file file_create(int id, struct string name, int width, int height, float pivot_x, float pivot_y) {
 	struct file file;
@@ -591,11 +30,6 @@ void file_destroy(struct file *file) {
 ////////////////////////////////////////////////////////////////////////////////
 // File list
 ////////////////////////////////////////////////////////////////////////////////
-struct file_list {
-	int length;
-	struct file *items;
-};
-
 struct file_list file_list_create() {
 	struct file_list file_list;
 	file_list.length = 0;
@@ -632,12 +66,6 @@ struct file* file_list_top(struct file_list *file_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Folder
 ////////////////////////////////////////////////////////////////////////////////
-
-struct folder {
-	int id;
-	struct file_list file_list;
-};
-
 struct folder folder_create(int id) {
 	struct folder folder;
 	folder.id = id;
@@ -654,10 +82,6 @@ void folder_destroy(struct folder *folder) {
 ////////////////////////////////////////////////////////////////////////////////
 // Folder list
 ////////////////////////////////////////////////////////////////////////////////
-struct folder_list {
-	int length;
-	struct folder *items;
-};
 
 struct folder_list folder_list_create() {
 	struct folder_list folder_list;
@@ -695,13 +119,6 @@ struct folder* folder_list_top(struct folder_list *folder_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Object ref
 ////////////////////////////////////////////////////////////////////////////////
-struct object_ref {
-	int id;
-	int timeline;
-	int key;
-	int z_index;
-};
-
 struct object_ref object_ref_create(int id, int timeline, int key, int z_index) {
 	struct object_ref object_ref;
 	object_ref.id = id;
@@ -718,11 +135,6 @@ void object_ref_destroy(struct object_ref *object_ref) {
 ////////////////////////////////////////////////////////////////////////////////
 // Object ref list
 ////////////////////////////////////////////////////////////////////////////////
-struct object_ref_list {
-	int length;
-	struct object_ref *items;
-};
-
 struct object_ref_list object_ref_list_create() {
 	struct object_ref_list object_ref_list;
 	object_ref_list.length = 0;
@@ -754,13 +166,6 @@ struct object_ref* object_ref_list_top(struct object_ref_list *object_ref_list) 
 ////////////////////////////////////////////////////////////////////////////////
 // Bone ref
 ////////////////////////////////////////////////////////////////////////////////
-struct bone_ref {
-	int id;
-	int parent;
-	int timeline;
-	int key;
-};
-
 struct bone_ref bone_ref_create(int id, int parent, int timeline, int key) {
 	struct bone_ref bone_ref;
 	bone_ref.id = id;
@@ -777,11 +182,6 @@ void bone_ref_destroy(struct bone_ref *bone_ref) {
 ////////////////////////////////////////////////////////////////////////////////
 // Bone ref list
 ////////////////////////////////////////////////////////////////////////////////
-struct bone_ref_list {
-	int length;
-	struct bone_ref *items;
-};
-
 struct bone_ref_list bone_ref_list_create() {
 	struct bone_ref_list bone_ref_list;
 	bone_ref_list.length = 0;
@@ -813,12 +213,6 @@ struct bone_ref* bone_ref_list_top(struct bone_ref_list *bone_ref_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Mainline key
 ////////////////////////////////////////////////////////////////////////////////
-struct mainline_key {
-	int id;
-	struct object_ref_list object_ref_list;
-	struct bone_ref_list bone_ref_list;
-};
-
 struct mainline_key mainline_key_create(int id) {
 	struct mainline_key mainline_key;
 	mainline_key.id = id;
@@ -837,11 +231,6 @@ void mainline_key_destroy(struct mainline_key *mainline_key) {
 ////////////////////////////////////////////////////////////////////////////////
 // Mainline key list
 ////////////////////////////////////////////////////////////////////////////////
-struct mainline_key_list {
-	int length;
-	struct mainline_key *items;
-};
-
 struct mainline_key_list mainline_key_list_create() {
 	struct mainline_key_list mainline_key_list;
 	mainline_key_list.length = 0;
@@ -878,11 +267,6 @@ struct mainline_key* mainline_key_list_top(struct mainline_key_list *mainline_ke
 ////////////////////////////////////////////////////////////////////////////////
 // Mainline
 ////////////////////////////////////////////////////////////////////////////////
-
-struct mainline {
-	struct mainline_key_list mainline_key_list;
-};
-
 struct mainline mainline_create() {
 	struct mainline mainline;
 	mainline.mainline_key_list = mainline_key_list_create();
@@ -897,15 +281,6 @@ void mainline_destroy(struct mainline *mainline) {
 ////////////////////////////////////////////////////////////////////////////////
 // Object
 ////////////////////////////////////////////////////////////////////////////////
-
-struct object {
-	int folder;
-	int file;
-	float angle;
-	float scale_x;
-	float scale_y;
-};
-
 struct object object_create(int folder, int file, float angle, float scale_x, float scale_y) {
 	struct object object;
 	object.folder = folder;
@@ -923,11 +298,6 @@ void object_destroy(struct object *object) {
 ////////////////////////////////////////////////////////////////////////////////
 // Object list
 ////////////////////////////////////////////////////////////////////////////////
-struct object_list {
-	int length;
-	struct object *items;
-};
-
 struct object_list object_list_create() {
 	struct object_list object_list;
 	object_list.length = 0;
@@ -964,16 +334,6 @@ struct object* object_list_top(struct object_list *object_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Bone
 ////////////////////////////////////////////////////////////////////////////////
-
-struct bone {
-	float x;
-	float y;
-	float angle;
-	float scale_x;
-	float scale_y;
-	float a;
-};
-
 struct bone bone_create(float x, float y, float angle, float scale_x, float scale_y, float a) {
 	struct bone bone;
 	bone.x = x;
@@ -991,11 +351,6 @@ void bone_destroy(struct bone *bone) {
 ////////////////////////////////////////////////////////////////////////////////
 // Bone list
 ////////////////////////////////////////////////////////////////////////////////
-struct bone_list {
-	int length;
-	struct bone *items;
-};
-
 struct bone_list bone_list_create() {
 	struct bone_list bone_list;
 	bone_list.length = 0;
@@ -1032,15 +387,6 @@ struct bone* bone_list_top(struct bone_list *bone_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Timeline key
 ////////////////////////////////////////////////////////////////////////////////
-
-struct timeline_key {
-	int id;
-	int time;
-	int spin;
-	struct object_list object_list;
-	struct bone_list bone_list;
-};
-
 struct timeline_key timeline_key_create(int id, int time, int spin) {
 	struct timeline_key timeline_key;
 	timeline_key.id = id;
@@ -1061,11 +407,6 @@ void timeline_key_destroy(struct timeline_key *timeline_key) {
 ////////////////////////////////////////////////////////////////////////////////
 // Timeline key list
 ////////////////////////////////////////////////////////////////////////////////
-struct timeline_key_list {
-	int length;
-	struct timeline_key *items;
-};
-
 struct timeline_key_list timeline_key_list_create() {
 	struct timeline_key_list timeline_key_list;
 	timeline_key_list.length = 0;
@@ -1102,13 +443,6 @@ struct timeline_key* timeline_key_list_top(struct timeline_key_list *timeline_ke
 ////////////////////////////////////////////////////////////////////////////////
 // Timeline
 ////////////////////////////////////////////////////////////////////////////////
-
-struct timeline {
-	int id;
-	struct string name;
-	struct timeline_key_list timeline_key_list;
-};
-
 struct timeline timeline_create(int id, struct string name) {
 	struct timeline timeline;
 	timeline.id = id;
@@ -1126,17 +460,6 @@ void timeline_destroy(struct timeline *timeline) {
 ////////////////////////////////////////////////////////////////////////////////
 // Animation
 ////////////////////////////////////////////////////////////////////////////////
-
-struct animation {
-	int id;
-	struct string name;
-	int length;
-	int interval;
-	
-	struct mainline mainline;
-	struct timeline timeline;
-};
-
 struct animation animation_create(int id, struct string name, int length, int interval) {
 	struct animation animation;
 	animation.id = id;
@@ -1157,11 +480,6 @@ void animation_destroy(struct animation *animation) {
 ////////////////////////////////////////////////////////////////////////////////
 // Animation list
 ////////////////////////////////////////////////////////////////////////////////
-struct animation_list {
-	int length;
-	struct animation *items;
-};
-
 struct animation_list animation_list_create() {
 	struct animation_list animation_list;
 	animation_list.length = 0;
@@ -1198,13 +516,6 @@ struct animation* animation_list_top(struct animation_list *animation_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Entity
 ////////////////////////////////////////////////////////////////////////////////
-
-struct entity {
-	int id;
-	struct string name;
-	struct animation_list animation_list;
-};
-
 struct entity entity_create(int id, struct string name) {
 	struct entity entity;
 	entity.id = id;
@@ -1223,11 +534,6 @@ void entity_destroy(struct entity *entity) {
 ////////////////////////////////////////////////////////////////////////////////
 // Entity list
 ////////////////////////////////////////////////////////////////////////////////
-struct entity_list {
-	int length;
-	struct entity *items;
-};
-
 struct entity_list entity_list_create() {
 	struct entity_list entity_list;
 	entity_list.length = 0;
@@ -1264,16 +570,6 @@ struct entity* entity_list_top(struct entity_list *entity_list) {
 ////////////////////////////////////////////////////////////////////////////////
 // Spriter Data
 ////////////////////////////////////////////////////////////////////////////////
-
-struct spriter_data {
-	struct string version;
-	struct string generator;
-	struct string generator_version;
-	
-	struct folder_list folder_list;
-	struct entity_list entity_list;
-};
-
 struct spriter_data spriter_data_create() {
 	struct spriter_data spriter_data;
 	spriter_data.folder_list = folder_list_create();
